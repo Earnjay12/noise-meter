@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>소음 측정기 효과 시안</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<style>
+  :root{--plane:#f3f6f2;--surface:#fff;--surface-2:#eaf0ea;--ink:#151b1d;--ink-2:#566164;--ink-3:#8a9497;--line:rgba(21,27,29,.10);--line-2:rgba(21,27,29,.18);--accent:#1f7a8c;--good:#0ca30c;--warn:#fab219;--crit:#d03b3b;--sky-a:#dceefb;--sky-b:#f6fbff;color-scheme:light}
+  @media (prefers-color-scheme:dark){:root{color-scheme:dark;--plane:#0d1113;--surface:#171d20;--surface-2:#1f272a;--ink:#eef2f1;--ink-2:#b5bec0;--ink-3:#7d888b;--line:rgba(255,255,255,.10);--line-2:rgba(255,255,255,.18);--accent:#4fb6c9;--sky-a:#101a2b;--sky-b:#0b1220}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--plane);color:var(--ink);font-family:"Noto Sans KR",system-ui,sans-serif;line-height:1.5}
+  .wrap{max-width:1040px;margin:0 auto;padding-inline:16px;padding-block:22px 48px;display:grid;gap:18px}
+  h1{font-size:20px;margin:0}
+  .sub{color:var(--ink-2);font-size:14px;margin:2px 0 0}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:grid;gap:12px}
+  .card h2{font-size:15px;margin:0;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .card h2 small{font-weight:400;color:var(--ink-3);font-size:12px}
+  canvas{width:100%;display:block;border-radius:12px;background:var(--surface-2)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .btn{border:1px solid var(--line-2);background:var(--surface);color:var(--ink);font:inherit;font-size:13px;font-weight:500;padding:7px 12px;border-radius:9px;cursor:pointer}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.danger{border-color:var(--crit);color:var(--crit)}
+  .btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+  .note{font-size:12px;color:var(--ink-3)}
+  label{font-size:13px;color:var(--ink-2);display:flex;align-items:center;gap:8px}
+  input[type=range]{accent-color:var(--accent)}
+  .stage{position:relative}
+  .shake{animation:shake .45s ease-in-out 2}
+  @keyframes shake{0%,100%{transform:translate(0,0)}20%{transform:translate(-8px,4px)}40%{transform:translate(7px,-5px)}60%{transform:translate(-6px,5px)}80%{transform:translate(5px,-3px)}}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:760px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>소음 측정기 효과 시안</h1>
+    <p class="sub">외부 파일 없이 코드로 직접 그리는 효과입니다. 화면 크기와 상관없이 선명하고, 소리 값에 바로 반응합니다.</p>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>💣 폭탄 모드 <small>도화선 불꽃 · 흔들림 · 폭발</small></h2>
+      <div class="stage" id="bombStage"><canvas id="bombCv" width="480" height="300"></canvas></div>
+      <div class="row">
+        <button class="btn" id="burnBtn" aria-pressed="false">🔥 도화선 태우기</button>
+        <button class="btn danger" id="boomBtn">💥 지금 터뜨리기</button>
+        <button class="btn" id="bombReset">↺ 처음으로</button>
+      </div>
+      <p class="note">실제 앱에서는 제한선을 넘는 동안만 도화선이 타고, 짧아질수록 더 크게 떨립니다.</p>
+    </div>
+
+    <div class="card">
+      <h2>🎉 성공 축하 <small>축포 · 불꽃놀이</small></h2>
+      <div class="stage"><canvas id="partyCv" width="480" height="300"></canvas></div>
+      <div class="row">
+        <button class="btn primary" id="partyBtn">🎊 축포 쏘기</button>
+        <button class="btn" id="fireBtn">🎆 불꽃놀이 3초</button>
+      </div>
+      <p class="note">성공 화면이 뜰 때 화면 전체에 뿌립니다. 폭탄 해체 성공, 조용히 채우기 달성 둘 다 같은 효과를 씁니다.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🚗 조용히 채우기 <small>자동차가 목표 깃발까지 달려요</small></h2>
+    <div class="stage"><canvas id="carCv" width="960" height="260"></canvas></div>
+    <div class="row">
+      <button class="btn" id="quietBtn" aria-pressed="true">🤫 조용함 (달림)</button>
+      <button class="btn" id="loudBtn" aria-pressed="false">📢 시끄러움 (멈춤)</button>
+      <label>진행 <input type="range" id="prog" min="0" max="100" value="20"> <span id="progLabel">20%</span></label>
+      <button class="btn" id="carReset">↺ 처음으로</button>
+    </div>
+    <p class="note">조용하면 바퀴가 돌고 배기 연기가 나면서 앞으로 가고, 시끄러우면 급정거하며 브레이크등이 켜집니다. 깃발에 닿으면 축포가 터집니다.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const rnd=(a,b)=>a+Math.random()*(b-a);
+  const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+  /* ================= 폭탄 ================= */
+  const bcv=$('#bombCv'), bctx=bcv.getContext('2d');
+  const B={fuse:1, burning:false, exploded:false, sparks:[], fire:[], debris:[], smoke:[], ring:null, flash:0, shakeT:0, t:0, resetAt:0};
+  function bombReset(){ Object.assign(B,{fuse:1,burning:false,exploded:false,sparks:[],fire:[],debris:[],smoke:[],ring:null,flash:0,shakeT:0,resetAt:0}); $('#burnBtn').setAttribute('aria-pressed','false'); }
+  $('#burnBtn').addEventListener('click',()=>{ if(B.exploded) bombReset(); B.burning=!B.burning; $('#burnBtn').setAttribute('aria-pressed',String(B.burning)); });
+  $('#boomBtn').addEventListener('click',()=>explode());
+  $('#bombReset').addEventListener('click',bombReset);
+
+  const BX=240, BY=190, BR=58;
+  function fusePoint(t){ // t: 0(폭탄) → 1(도화선 끝), 위로 휘는 곡선
+    const p0=[BX+30,BY-52], p1=[BX+70,BY-120], p2=[BX+140,BY-90], p3=[BX+170,BY-150];
+    const u=1-t; return [u*u*u*p0[0]+3*u*u*t*p1[0]+3*u*t*t*p2[0]+t*t*t*p3[0], u*u*u*p0[1]+3*u*u*t*p1[1]+3*u*t*t*p2[1]+t*t*t*p3[1]];
+  }
+  function explode(){
+    if(B.exploded) return; B.exploded=true; B.burning=false; B.flash=1; B.shakeT=1; B.ring={r:10,a:1}; B.resetAt=performance.now()+2600;
+    for(let i=0;i<90;i++){ const a=rnd(0,Math.PI*2), s=rnd(2,11); B.fire.push({x:BX,y:BY,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,r:rnd(10,26),life:1,dec:rnd(.012,.03),hue:rnd(10,50)}); }
+    for(let i=0;i<26;i++){ const a=rnd(0,Math.PI*2), s=rnd(4,13); B.debris.push({x:BX,y:BY,vx:Math.cos(a)*s,vy:Math.sin(a)*s-6,w:rnd(4,12),h:rnd(3,8),rot:rnd(0,6),vr:rnd(-.3,.3),life:1}); }
+    for(let i=0;i<18;i++){ const a=rnd(0,Math.PI*2), s=rnd(.5,3); B.smoke.push({x:BX+rnd(-20,20),y:BY+rnd(-20,20),vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,r:rnd(14,30),life:1,dec:rnd(.006,.012)}); }
+    const st=$('#bombStage'); st.classList.remove('shake'); void st.offsetWidth; st.classList.add('shake');
+  }
+  function drawBomb(dt){
+    const w=bcv.width,h=bcv.height; bctx.clearRect(0,0,w,h);
+    B.t+=dt;
+    if(B.burning && !B.exploded){ B.fuse=Math.max(0,B.fuse-dt*0.07); if(B.fuse<=0) explode(); }
+    bctx.save();
+    if(B.shakeT>0){ B.shakeT=Math.max(0,B.shakeT-dt*1.6); const k=B.shakeT*14; bctx.translate(rnd(-k,k),rnd(-k,k)); }
+    // 바닥 그림자
+    bctx.fillStyle='rgba(0,0,0,.12)'; bctx.beginPath(); bctx.ellipse(BX,BY+BR+10,BR*1.05,10,0,0,Math.PI*2); bctx.fill();
+    if(!B.exploded){
+      // 도화선이 짧을수록 떨림
+      const jit=B.burning?(1-B.fuse)*(1-B.fuse)*9:0; const jx=rnd(-jit,jit), jy=rnd(-jit,jit);
+      bctx.save(); bctx.translate(jx,jy);
+      // 도화선
+      bctx.lineCap='round'; bctx.lineWidth=7; bctx.strokeStyle='#7a5a3a'; bctx.beginPath();
+      for(let i=0;i<=24;i++){ const t=i/24*B.fuse; const [x,y]=fusePoint(t); i?bctx.lineTo(x,y):bctx.moveTo(x,y); } bctx.stroke();
+      bctx.lineWidth=3; bctx.strokeStyle='#c9a06a'; bctx.stroke();
+      // 심지 꽂이
+      bctx.fillStyle='#4a4f53'; bctx.beginPath(); bctx.roundRect(BX+16,BY-70,28,24,5); bctx.fill();
+      // 폭탄 몸통
+      const g=bctx.createRadialGradient(BX-20,BY-22,6,BX,BY,BR+6); g.addColorStop(0,'#5b6367'); g.addColorStop(.5,'#2a2f33'); g.addColorStop(1,'#141719');
+      bctx.fillStyle=g; bctx.beginPath(); bctx.arc(BX,BY,BR,0,Math.PI*2); bctx.fill();
+      bctx.fillStyle='rgba(255,255,255,.18)'; bctx.beginPath(); bctx.ellipse(BX-20,BY-24,16,9,-.6,0,Math.PI*2); bctx.fill();
+      // 눈 (긴장 표정)
+      const fear=B.burning?(1-B.fuse):0;
+      bctx.fillStyle='#fff'; bctx.beginPath(); bctx.ellipse(BX-16,BY-4,9,10+fear*4,0,0,Math.PI*2); bctx.ellipse(BX+16,BY-4,9,10+fear*4,0,0,Math.PI*2); bctx.fill();
+      bctx.fillStyle='#151b1d'; bctx.beginPath(); bctx.arc(BX-16+fear*3,BY-2,4,0,Math.PI*2); bctx.arc(BX+16-fear*3,BY-2,4,0,Math.PI*2); bctx.fill();
+      bctx.strokeStyle='#151b1d'; bctx.lineWidth=3; bctx.lineCap='round'; bctx.beginPath();
+      if(fear>.5){ bctx.ellipse(BX,BY+20,7+fear*6,5+fear*8,0,0,Math.PI*2); } else { bctx.moveTo(BX-10,BY+20); bctx.quadraticCurveTo(BX,BY+14+fear*14,BX+10,BY+20); }
+      bctx.stroke();
+      bctx.restore();
+      // 불꽃 파티클
+      if(B.burning){ const [fx,fy]=fusePoint(B.fuse); for(let i=0;i<4;i++) B.sparks.push({x:fx+jx,y:fy+jy,vx:rnd(-3,3),vy:rnd(-4,1),life:1,dec:rnd(.03,.07),r:rnd(1.5,4)});
+        const gl=bctx.createRadialGradient(fx,fy,0,fx,fy,26); gl.addColorStop(0,'rgba(255,230,120,.9)'); gl.addColorStop(1,'rgba(255,140,0,0)'); bctx.fillStyle=gl; bctx.beginPath(); bctx.arc(fx,fy,26,0,Math.PI*2); bctx.fill(); }
+    }
+    // 스파크
+    B.sparks=B.sparks.filter(p=>p.life>0); B.sparks.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.vy+=.12; p.life-=p.dec; bctx.fillStyle=`rgba(255,${Math.round(150+p.life*100)},40,${p.life})`; bctx.beginPath(); bctx.arc(p.x,p.y,Math.max(0,p.r*p.life),0,Math.PI*2); bctx.fill(); });
+    // 연기
+    B.smoke=B.smoke.filter(p=>p.life>0); B.smoke.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.vy-=.02; p.r+=.5; p.life-=p.dec; bctx.fillStyle=`rgba(90,90,95,${p.life*.5})`; bctx.beginPath(); bctx.arc(p.x,p.y,p.r,0,Math.PI*2); bctx.fill(); });
+    // 불덩이
+    bctx.globalCompositeOperation='lighter';
+    B.fire=B.fire.filter(p=>p.life>0); B.fire.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.vx*=.96; p.vy*=.96; p.life-=p.dec; const r=Math.max(0.1,p.r*p.life); const g=bctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r); g.addColorStop(0,`hsla(${p.hue+30},100%,70%,${p.life})`); g.addColorStop(.6,`hsla(${p.hue},100%,50%,${p.life*.7})`); g.addColorStop(1,`hsla(${p.hue},100%,40%,0)`); bctx.fillStyle=g; bctx.beginPath(); bctx.arc(p.x,p.y,r,0,Math.PI*2); bctx.fill(); });
+    bctx.globalCompositeOperation='source-over';
+    // 파편
+    B.debris=B.debris.filter(p=>p.life>0); B.debris.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.vy+=.35; p.rot+=p.vr; p.life-=.012; bctx.save(); bctx.translate(p.x,p.y); bctx.rotate(p.rot); bctx.fillStyle=`rgba(40,44,48,${p.life})`; bctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); bctx.restore(); });
+    // 충격파 링
+    if(B.ring){ B.ring.r+=9; B.ring.a-=.035; if(B.ring.a<=0) B.ring=null; else { bctx.strokeStyle=`rgba(255,255,255,${B.ring.a})`; bctx.lineWidth=10*B.ring.a+1; bctx.beginPath(); bctx.arc(BX,BY,B.ring.r,0,Math.PI*2); bctx.stroke(); } }
+    bctx.restore();
+    // 섬광
+    if(B.flash>0){ bctx.fillStyle=`rgba(255,250,230,${B.flash})`; bctx.fillRect(0,0,w,h); B.flash-=dt*3; }
+    if(B.exploded){ bctx.fillStyle=css('--crit'); bctx.font='900 40px "Noto Sans KR",sans-serif'; bctx.textAlign='center'; bctx.fillText('펑!',w/2,60); if(B.resetAt&&performance.now()>B.resetAt) bombReset(); }
+  }
+
+  /* ================= 축포 (직접 구현, 외부 라이브러리 없음) ================= */
+  const pcv=$('#partyCv'), pctx=pcv.getContext('2d'); const P=[];
+  const COLORS=['#ff5e5e','#ffd166','#06d6a0','#4cc9f0','#f72585','#ff9f1c','#8ac926'];
+  // origin: 0~1 비율, angle: 도(90=위), spread: 퍼짐 각도
+  function party(o){
+    o=Object.assign({count:120,angle:90,spread:70,speed:14,origin:{x:.5,y:.8},scalar:1,ticks:110},o);
+    for(let i=0;i<o.count;i++){ const a=(o.angle+rnd(-o.spread/2,o.spread/2))*Math.PI/180, s=o.speed*rnd(.5,1.15);
+      P.push({x:o.origin.x*pcv.width,y:o.origin.y*pcv.height,vx:Math.cos(a)*s,vy:-Math.sin(a)*s,w:rnd(6,11)*o.scalar,h:rnd(4,7)*o.scalar,rot:rnd(0,6),vr:rnd(-.25,.25),wob:rnd(0,6),c:COLORS[i%COLORS.length],life:o.ticks,max:o.ticks,circle:Math.random()<.3}); }
+  }
+  function drawParty(){
+    pctx.clearRect(0,0,pcv.width,pcv.height);
+    for(let i=P.length-1;i>=0;i--){ const p=P[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=.28; p.vx*=.985; p.vy*=.985; p.rot+=p.vr; p.wob+=.12; p.life--; if(p.life<=0||p.y>pcv.height+20){P.splice(i,1);continue;}
+      pctx.save(); pctx.translate(p.x,p.y); pctx.rotate(p.rot); pctx.globalAlpha=Math.min(1,p.life/25); pctx.fillStyle=p.c;
+      const sx=Math.abs(Math.cos(p.wob)); if(p.circle){ pctx.beginPath(); pctx.ellipse(0,0,p.w/2*sx+1,p.h/2+1,0,0,Math.PI*2); pctx.fill(); } else pctx.fillRect(-p.w/2*sx,-p.h/2,p.w*sx,p.h);
+      pctx.restore(); }
+  }
+  $('#partyBtn').addEventListener('click',()=>{ party({count:170,angle:90,spread:80,speed:15,origin:{x:.5,y:.85},scalar:1.2}); setTimeout(()=>party({count:80,angle:60,spread:55,origin:{x:0,y:.9}}),150); setTimeout(()=>party({count:80,angle:120,spread:55,origin:{x:1,y:.9}}),300); });
+  $('#fireBtn').addEventListener('click',()=>{ const end=Date.now()+3000; (function frame(){ if(Math.random()<.25) party({count:40,angle:90,spread:360,speed:7,ticks:70,origin:{x:rnd(.15,.85),y:rnd(.2,.55)},scalar:.8}); if(Date.now()<end) requestAnimationFrame(frame); })(); });
+
+  /* ================= 자동차 ================= */
+  const ccv=$('#carCv'), cctx=ccv.getContext('2d');
+  const C={quiet:true,speed:0,prog:.2,wheel:0,road:0,bob:0,puffs:[],done:false,celebrated:false,skid:0};
+  $('#quietBtn').addEventListener('click',()=>setQuiet(true)); $('#loudBtn').addEventListener('click',()=>setQuiet(false));
+  function setQuiet(q){ C.quiet=q; $('#quietBtn').setAttribute('aria-pressed',String(q)); $('#loudBtn').setAttribute('aria-pressed',String(!q)); if(!q) C.skid=1; }
+  $('#prog').addEventListener('input',e=>{ C.prog=+e.target.value/100; C.done=false; C.celebrated=false; });
+  $('#carReset').addEventListener('click',()=>{ C.prog=0; C.done=false; C.celebrated=false; $('#prog').value=0; setQuiet(true); });
+  function drawCar(dt){
+    const w=ccv.width,h=ccv.height; cctx.clearRect(0,0,w,h);
+    const target=C.quiet&&!C.done?1:0; C.speed+= (target-C.speed)*(target>C.speed?dt*1.2:dt*4);
+    if(C.quiet&&!C.done){ C.prog=Math.min(1,C.prog+dt*0.02); $('#prog').value=Math.round(C.prog*100); }
+    $('#progLabel').textContent=Math.round(C.prog*100)+'%';
+    if(C.prog>=1&&!C.done){ C.done=true; if(!C.celebrated){ C.celebrated=true; carParty(); } }
+    C.wheel+=C.speed*dt*14; C.road+=C.speed*dt*260; C.bob=Math.sin(performance.now()/90)*C.speed*2.2;
+    // 하늘 + 언덕
+    const sky=cctx.createLinearGradient(0,0,0,h); sky.addColorStop(0,css('--sky-a')); sky.addColorStop(1,css('--sky-b')); cctx.fillStyle=sky; cctx.fillRect(0,0,w,h);
+    cctx.fillStyle='rgba(12,163,12,.25)'; cctx.beginPath(); cctx.moveTo(0,h-90); for(let x=0;x<=w;x+=40){ cctx.lineTo(x,h-90-Math.sin((x+C.road*.15)/90)*18-Math.sin((x+C.road*.15)/37)*6); } cctx.lineTo(w,h); cctx.lineTo(0,h); cctx.fill();
+    // 도로
+    cctx.fillStyle='#3a4045'; cctx.fillRect(0,h-78,w,60);
+    cctx.strokeStyle='#e9e2b0'; cctx.lineWidth=4; cctx.setLineDash([36,28]); cctx.lineDashOffset=-(C.road%64); cctx.beginPath(); cctx.moveTo(0,h-48); cctx.lineTo(w,h-48); cctx.stroke(); cctx.setLineDash([]);
+    // 출발/도착
+    const x0=70, x1=w-90;
+    cctx.font='28px "Noto Sans KR",system-ui,sans-serif'; cctx.textAlign='center'; cctx.fillText('🏁',x1+30,h-84);
+    cctx.fillStyle='rgba(21,27,29,.15)'; cctx.fillRect(x0,h-100,x1-x0,6); cctx.fillStyle=css('--good'); cctx.fillRect(x0,h-100,(x1-x0)*C.prog,6);
+    // 자동차
+    const cx=x0+(x1-x0)*C.prog, cy=h-78+C.bob;
+    // 배기 연기
+    if(C.speed>.2&&Math.random()<.5) C.puffs.push({x:cx-46,y:cy-6,r:rnd(3,6),life:1,vx:-rnd(1.5,3),vy:-rnd(.2,.8)});
+    C.puffs=C.puffs.filter(p=>p.life>0); C.puffs.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.r+=.35; p.life-=.03; cctx.fillStyle=`rgba(120,125,130,${p.life*.5})`; cctx.beginPath(); cctx.arc(p.x,p.y,p.r,0,Math.PI*2); cctx.fill(); });
+    // 급정거 스키드
+    if(C.skid>0){ C.skid-=dt*1.5; cctx.strokeStyle=`rgba(30,30,30,${C.skid*.5})`; cctx.lineWidth=5; cctx.beginPath(); cctx.moveTo(cx-40,h-24); cctx.lineTo(cx-18,h-24); cctx.moveTo(cx+14,h-24); cctx.lineTo(cx+36,h-24); cctx.stroke(); }
+    // 속도선
+    if(C.speed>.6){ cctx.strokeStyle='rgba(21,27,29,.25)'; cctx.lineWidth=2; for(let i=0;i<3;i++){ const y=cy-40+i*12; cctx.beginPath(); cctx.moveTo(cx-60-rnd(0,20),y); cctx.lineTo(cx-90-rnd(0,30),y); cctx.stroke(); } }
+    cctx.save(); cctx.translate(cx,cy);
+    // 몸통
+    cctx.fillStyle='#e8503a'; cctx.beginPath(); cctx.roundRect(-46,-26,92,30,8); cctx.fill();
+    cctx.fillStyle='#f06a55'; cctx.beginPath(); cctx.roundRect(-28,-50,56,28,10); cctx.fill();
+    cctx.fillStyle='#bfe6ff'; cctx.beginPath(); cctx.roundRect(-22,-46,22,18,4); cctx.roundRect(4,-46,20,18,4); cctx.fill();
+    // 헤드라이트 / 브레이크등
+    cctx.fillStyle='#fff3b0'; cctx.beginPath(); cctx.roundRect(38,-20,8,8,2); cctx.fill();
+    cctx.fillStyle=(!C.quiet||C.done)?'#ff2d2d':'#7a1f1f'; cctx.beginPath(); cctx.roundRect(-46,-20,8,8,2); cctx.fill();
+    if(!C.quiet&&!C.done){ const gl=cctx.createRadialGradient(-44,-16,0,-44,-16,18); gl.addColorStop(0,'rgba(255,60,60,.7)'); gl.addColorStop(1,'rgba(255,60,60,0)'); cctx.fillStyle=gl; cctx.beginPath(); cctx.arc(-44,-16,18,0,Math.PI*2); cctx.fill(); }
+    // 바퀴
+    [-28,28].forEach(wx=>{ cctx.save(); cctx.translate(wx,4); cctx.rotate(C.wheel); cctx.fillStyle='#1d2124'; cctx.beginPath(); cctx.arc(0,0,13,0,Math.PI*2); cctx.fill(); cctx.fillStyle='#9aa3a8'; cctx.beginPath(); cctx.arc(0,0,7,0,Math.PI*2); cctx.fill(); cctx.strokeStyle='#1d2124'; cctx.lineWidth=2; for(let i=0;i<4;i++){ cctx.beginPath(); cctx.moveTo(0,0); cctx.lineTo(Math.cos(i*Math.PI/2)*7,Math.sin(i*Math.PI/2)*7); cctx.stroke(); } cctx.restore(); });
+    // 운전자 말풍선
+    if(!C.quiet&&!C.done){ cctx.font='700 16px "Noto Sans KR",sans-serif'; cctx.fillStyle='#fff'; cctx.beginPath(); cctx.roundRect(-4,-92,68,30,10); cctx.fill(); cctx.fillStyle=css('--crit'); cctx.textAlign='center'; cctx.fillText('시끄러워!',30,-71); }
+    if(C.done){ cctx.font='700 16px "Noto Sans KR",sans-serif'; cctx.fillStyle='#fff'; cctx.beginPath(); cctx.roundRect(-30,-92,60,30,10); cctx.fill(); cctx.fillStyle=css('--good'); cctx.textAlign='center'; cctx.fillText('도착!',0,-71); }
+    cctx.restore();
+  }
+
+  // 자동차 도착 축포: 자동차 캔버스 위에 직접 뿌림
+  const CP=[];
+  function carParty(){ for(let i=0;i<160;i++){ const a=(90+rnd(-60,60))*Math.PI/180, s=rnd(6,16); CP.push({x:ccv.width-60,y:ccv.height-120,vx:Math.cos(a)*s,vy:-Math.sin(a)*s,w:rnd(6,11),h:rnd(4,7),rot:rnd(0,6),vr:rnd(-.25,.25),c:COLORS[i%COLORS.length],life:120}); } }
+  function drawCarParty(){ for(let i=CP.length-1;i>=0;i--){ const p=CP[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=.3; p.vx*=.985; p.rot+=p.vr; p.life--; if(p.life<=0){CP.splice(i,1);continue;} cctx.save(); cctx.translate(p.x,p.y); cctx.rotate(p.rot); cctx.globalAlpha=Math.min(1,p.life/25); cctx.fillStyle=p.c; cctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); cctx.restore(); } }
+
+  let last=performance.now();
+  function frame(dt){ try{ drawBomb(dt); drawParty(); drawCar(dt); drawCarParty(); }catch(e){ console.error(e); } }
+  function loop(now){ const dt=Math.min(.1,(now-last)/1000); last=now; frame(dt); requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+  window.__demo={B,C,P,CP,step:(n,dt)=>{ for(let i=0;i<n;i++) frame(dt||1/60); }};
+})();
+</script>
+</body>
+</html>

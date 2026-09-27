@@ -20,8 +20,9 @@
     warn: false, aboveSince: null, belowSince: null, warnCount: 0,
     quietMs: 0, remainingMs: 0, fuseMs: 0, elapsedMs: 0, sum: 0, n: 0, sessionMax: 0, resetFlashUntil: 0,
     sim: { phase: 0, until: 0, wob: Math.random() * 100 },
-    hover: null
+    hover: null, overlayTimer: 0
   };
+  const fx = {};
   const PHASES = [
     { base: 42, jit: 3, dur: [9000, 14000] },
     { base: 60, jit: 5, dur: [10000, 16000] },
@@ -155,13 +156,14 @@
   function startRun() {
     Object.assign(S, { running: true, paused: false, result: null, warn: false, aboveSince: null, belowSince: null, warnCount: 0, quietMs: 0, elapsedMs: 0, sum: 0, n: 0, sessionMax: 0, resetFlashUntil: 0 });
     S.remainingMs = cfg.goalMin * 60000; S.fuseMs = cfg.fuseSec * 1000;
-    $('#overlay').hidden = true; $('#confetti').innerHTML = '';
+    clearTimeout(S.overlayTimer); $('#overlay').hidden = true; $('#flash').classList.remove('on');
+    fx.bomb.reset(); fx.road.reset(); fx.confetti.clear();
     $('#run').classList.remove('shake');
-    $('#goalQuiet').hidden = cfg.mode !== 'quiet'; $('#goalBomb').hidden = cfg.mode !== 'bomb';
+    $('#goalQuiet').hidden = cfg.mode !== 'quiet'; $('#goalBomb').hidden = cfg.mode !== 'bomb'; $('#roadBox').hidden = cfg.mode !== 'quiet';
     $('#goalName').textContent = cfg.mode === 'quiet' ? '🌱 ' + cfg.goalMin + '분 동안 조용히 채우기' : cfg.mode === 'bomb' ? '💣 ' + cfg.goalMin + '분 버티면 폭탄 해체' : '📊 소음 측정';
     $('#timerLabel').textContent = cfg.mode === 'quiet' ? '채운 시간' : cfg.mode === 'bomb' ? '해체까지' : '경과';
     $('#quietGoal').textContent = fmtTime(cfg.goalMin * 60000);
-    $('#quietHint').textContent = cfg.resetOnLoud ? '조용하면 채워지고, 경고가 뜨면 처음부터 다시!' : '조용하면 채워지고, 시끄러우면 멈춰요';
+    $('#quietHint').textContent = cfg.resetOnLoud ? '조용하면 자동차가 달리고, 경고가 뜨면 출발점으로 돌아가요' : '조용하면 자동차가 달리고, 시끄러우면 멈춰요';
     $('#alert').textContent = '🤫 ' + cfg.msg;
     $('#pauseBtn').textContent = '⏸ 일시정지'; $('#pausedBadge').hidden = true;
     buildZones();
@@ -194,25 +196,22 @@
     S.running = false; S.result = result; S.warn = false;
     const avg = S.n ? Math.round(S.sum / S.n) : 0;
     $('#rAvg').textContent = avg + ' dB'; $('#rMax').textContent = Math.round(S.sessionMax) + ' dB'; $('#rWarn').textContent = S.warnCount + '회';
+    clearTimeout(S.overlayTimer);
     if (result === 'success') {
-      $('#rEmoji').textContent = cfg.mode === 'bomb' ? '🎉' : '🌸';
-      $('#rTitle').textContent = cfg.mode === 'bomb' ? '폭탄 해체 성공!' : '목표 달성!';
+      $('#rEmoji').textContent = cfg.mode === 'bomb' ? '🎉' : '🏁';
+      $('#rTitle').textContent = cfg.mode === 'bomb' ? '폭탄 해체 성공!' : '목표 도착!';
       $('#rDesc').textContent = cfg.goalMin + '분 동안 잘 해냈어요. 경고는 ' + S.warnCount + '번 있었어요.';
-      chime(); confetti();
+      chime(); fx.confetti.celebrate();
+      // 자동차가 깃발에 닿는 장면을 잠깐 보여준 뒤 결과 카드
+      S.overlayTimer = setTimeout(() => { if (S.screen === 'run' && S.result === 'success') $('#overlay').hidden = false; }, cfg.mode === 'quiet' ? 900 : 300);
     } else {
       $('#rEmoji').textContent = '💥'; $('#rTitle').textContent = '펑! 폭탄이 터졌어요';
       $('#rDesc').textContent = '도화선이 다 탔어요. ' + fmtTime(cfg.goalMin * 60000 - S.remainingMs) + ' 만에 터졌어요.';
-      boom(); $('#run').classList.add('shake');
-    }
-    $('#overlay').hidden = false;
-  }
-  function confetti() {
-    const box = $('#confetti'); box.innerHTML = '';
-    const items = ['🎉', '✨', '🌟', '🎊', '💚', '⭐'];
-    for (let i = 0; i < 40; i++) {
-      const s = document.createElement('span'); s.textContent = items[i % items.length];
-      s.style.left = Math.random() * 100 + '%'; s.style.animationDuration = (2.5 + Math.random() * 2.5) + 's'; s.style.animationDelay = (Math.random() * 1.5) + 's';
-      box.appendChild(s);
+      boom(); fx.bomb.explode();
+      const fl = $('#flash'); fl.classList.remove('on'); void fl.offsetWidth; fl.classList.add('on');
+      const run = $('#run'); run.classList.remove('shake'); void run.offsetWidth; run.classList.add('shake');
+      // 폭발 장면을 보여준 뒤 결과 카드
+      S.overlayTimer = setTimeout(() => { if (S.screen === 'run' && S.result === 'boom') $('#overlay').hidden = false; }, 1400);
     }
   }
   function togglePause() {
@@ -226,7 +225,7 @@
   }
   function showScreen(name) {
     S.screen = name; $('#setup').hidden = name !== 'setup'; $('#run').hidden = name !== 'run';
-    if (name === 'setup') { S.running = false; S.paused = false; $('#run').classList.remove('warn'); }
+    if (name === 'setup') { S.running = false; S.paused = false; clearTimeout(S.overlayTimer); $('#run').classList.remove('warn'); $('#overlay').hidden = true; fx.confetti.clear(); }
   }
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 4500); }
 
@@ -268,7 +267,7 @@
     chip.className = 'chip ' + st; $('#pvChipText').textContent = (cfg.sim && !S.mic ? '가짜 소리 · ' : '') + STATUS_TEXT[st];
     $('#thrHint').textContent = '지금 소리 ' + Math.round(S.level) + ' dB. 보통 수업 소리보다 10 정도 높게 잡으면 적당해요.';
   }
-  function renderRun(now) {
+  function renderRun(now, dt) {
     const st = status(), lv = Math.round(S.level);
     $('#run').classList.toggle('warn', S.warn && S.running);
     $('#needle').setAttribute('transform', 'rotate(' + angleOf(S.level).toFixed(2) + ' ' + CX + ' ' + CY + ')');
@@ -280,20 +279,20 @@
       const goal = cfg.goalMin * 60000, p = clamp(S.quietMs / goal, 0, 1);
       $('#timer').textContent = fmtTime(S.quietMs);
       $('#quietPct').textContent = Math.floor(p * 100) + '%'; $('#quietTime').textContent = fmtTime(S.quietMs);
-      $('#quietFill').style.width = (p * 100) + '%'; $('#quietMarker').style.left = (p * 100) + '%';
-      $('#quietMarker').textContent = p >= 1 ? '🌸' : p >= 0.66 ? '🌳' : p >= 0.33 ? '🌿' : '🌱';
       const h = $('#quietHint'); const flash = now < S.resetFlashUntil;
-      h.classList.toggle('flash', flash); h.textContent = flash ? '경고! 처음부터 다시 채워요' : (cfg.resetOnLoud ? '조용하면 채워지고, 경고가 뜨면 처음부터 다시!' : '조용하면 채워지고, 시끄러우면 멈춰요');
+      h.classList.toggle('flash', flash); h.textContent = flash ? '경고! 출발점으로 돌아가요' : (cfg.resetOnLoud ? '조용하면 자동차가 달리고, 경고가 뜨면 출발점으로 돌아가요' : '조용하면 자동차가 달리고, 시끄러우면 멈춰요');
+      const loud = S.level > cfg.thr;
+      fx.road.draw(dt, { prog: p, moving: S.running && !S.paused && !loud, loud: loud && S.result !== 'success', done: S.result === 'success' });
     } else if (cfg.mode === 'bomb') {
       $('#timer').textContent = fmtTime(S.remainingMs); $('#bombTime').textContent = fmtTime(S.remainingMs);
       const p = clamp(S.fuseMs / (cfg.fuseSec * 1000), 0, 1);
-      $('#fuseFill').style.width = (p * 100) + '%'; $('#spark').style.left = (p * 100) + '%';
       $('#fuseLeft').textContent = Math.ceil(S.fuseMs / 1000);
-      $('#goalBomb').classList.toggle('burning', S.running && !S.paused && S.level > cfg.thr);
+      fx.bomb.draw(dt, { fuse: p, burning: S.running && !S.paused && S.level > cfg.thr });
     } else {
       $('#timer').textContent = fmtTime(S.elapsedMs);
     }
     drawChart($('#chart'), now);
+    fx.confetti.draw();
   }
   function drawChart(cv, now) {
     const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight; if (!w || !h) return;
@@ -348,13 +347,16 @@
     if (now - S.lastSample >= 100) { S.lastSample = now; S.hist.push({ t: now, v: S.level }); while (S.hist.length && now - S.hist[0].t > SPAN + 1000) S.hist.shift(); }
     if (S.screen === 'run') runLogic(now, dt);
   }
+  let lastRender = performance.now();
   function renderTick(now) {
-    if (S.screen === 'run') renderRun(now); else renderSetup();
+    const dt = Math.min(0.1, (now - lastRender) / 1000); lastRender = now;
+    if (S.screen === 'run') renderRun(now, dt); else renderSetup();
     requestAnimationFrame(renderTick);
   }
 
   /* ---------- 시작 ---------- */
   function init() {
+    fx.bomb = FX.BombScene($('#bombCv')); fx.road = FX.RoadScene($('#roadCv')); fx.confetti = FX.Confetti($('#confettiCv'));
     applyCfgToSetup(); bindSetup(); buildTicks(); buildZones();
     $('#pauseBtn').addEventListener('click', togglePause);
     $('#fsBtn').addEventListener('click', toggleFullscreen);

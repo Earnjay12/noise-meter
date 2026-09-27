@@ -176,17 +176,14 @@
     <aside class="side">
       <!-- 조용히 채우기 -->
       <div class="goal-panel" id="goalQuiet" hidden>
-        <div class="gp-head"><span>조용한 시간 채우기</span><span id="quietPct">0%</span></div>
-        <div class="track"><div class="fill" id="quietFill"></div><div class="marker" id="quietMarker">🌱</div></div>
+        <div class="gp-head"><span>🚗 조용한 시간 채우기</span><span id="quietPct">0%</span></div>
         <div class="gp-time"><b id="quietTime">0:00</b> / <span id="quietGoal">10:00</span></div>
-        <div class="gp-hint" id="quietHint">조용하면 채워지고, 시끄러우면 멈춰요</div>
+        <div class="gp-hint" id="quietHint">조용하면 자동차가 달리고, 시끄러우면 멈춰요</div>
       </div>
       <!-- 폭탄 해체 -->
       <div class="goal-panel bomb-panel" id="goalBomb" hidden>
-        <div class="gp-head"><span>폭탄 해체까지</span><b id="bombTime">10:00</b></div>
-        <div class="bomb-stage"><span class="bomb" id="bomb">💣</span>
-          <div class="fuse"><div class="fuse-fill" id="fuseFill"></div><span class="spark" id="spark">✨</span></div>
-        </div>
+        <div class="gp-head"><span>💣 폭탄 해체까지</span><b id="bombTime">10:00</b></div>
+        <canvas class="fx" id="bombCv" aria-label="폭탄 장면"></canvas>
         <div class="gp-time">도화선 <b id="fuseLeft">30</b>초 남음</div>
         <div class="gp-hint">제한선을 넘는 동안 도화선이 타요</div>
       </div>
@@ -198,6 +195,8 @@
         <div class="tile"><span class="l">조용히 한 시간</span><span class="v" id="quietTotal">0:00</span></div>
       </div>
     </aside>
+
+    <div class="road-box" id="roadBox" hidden><canvas class="fx" id="roadCv" aria-label="자동차 도로"></canvas></div>
 
     <div class="chart-box">
       <div class="cap"><span>최근 60초 흐름</span><span>점선은 제한선</span></div>
@@ -221,11 +220,13 @@
         <button class="btn" id="toSetupBtn">⚙ 설정으로</button>
       </div>
     </div>
-    <div class="confetti" id="confetti" aria-hidden="true"></div>
   </div>
+  <canvas class="fx-confetti" id="confettiCv" aria-hidden="true"></canvas>
+  <div class="flash" id="flash" aria-hidden="true"></div>
 </section>
 
 <div class="toast" id="toast"></div>
+<script src="effects.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
