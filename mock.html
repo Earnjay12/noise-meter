@@ -1,0 +1,507 @@
+<meta charset="utf-8">
+<title>교실 소음 측정기 시안</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<style>
+  :root{
+    --plane:#f3f6f2; --surface:#ffffff; --surface-2:#eaf0ea;
+    --ink:#151b1d; --ink-2:#566164; --ink-3:#8a9497;
+    --line:rgba(21,27,29,.10); --line-2:rgba(21,27,29,.18);
+    --accent:#1f7a8c; --accent-soft:rgba(31,122,140,.16);
+    --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+    --good-soft:rgba(12,163,12,.14); --warn-soft:rgba(250,178,25,.18); --crit-soft:rgba(208,59,59,.16);
+    --chart:#fcfcfb;
+    --scene-a:#e3f1ff; --scene-b:#f8fbff; --lamp-off:#c9d1d4;
+    --shadow:0 10px 30px rgba(21,27,29,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --plane:#0d1113; --surface:#171d20; --surface-2:#1f272a;
+      --ink:#eef2f1; --ink-2:#b5bec0; --ink-3:#7d888b;
+      --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.18);
+      --accent:#4fb6c9; --accent-soft:rgba(79,182,201,.18);
+      --chart:#1a1a19;
+      --scene-a:#10192b; --scene-b:#0b1220; --lamp-off:#2b3438;
+      --shadow:0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --plane:#0d1113; --surface:#171d20; --surface-2:#1f272a;
+    --ink:#eef2f1; --ink-2:#b5bec0; --ink-3:#7d888b;
+    --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.18);
+    --accent:#4fb6c9; --accent-soft:rgba(79,182,201,.18);
+    --chart:#1a1a19;
+    --scene-a:#10192b; --scene-b:#0b1220; --lamp-off:#2b3438;
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--plane);color:var(--ink);font-family:"Noto Sans KR",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding-inline:16px;padding-block:20px 48px;display:grid;gap:18px}
+  h1{font-size:20px;font-weight:700;margin:0;letter-spacing:-.01em}
+  .sub{color:var(--ink-2);font-size:14px;margin:2px 0 0}
+  .top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;justify-content:space-between}
+  .tabs{display:flex;gap:6px;background:var(--surface-2);padding:4px;border-radius:12px}
+  .tab{border:0;background:transparent;color:var(--ink-2);font:inherit;font-weight:500;padding:8px 16px;border-radius:9px;cursor:pointer}
+  .tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .tab:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* controls */
+  .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .ctl{display:grid;gap:6px;font-size:13px;color:var(--ink-2)}
+  .ctl b{color:var(--ink);font-weight:500}
+  .ctl .row{display:flex;align-items:center;gap:10px}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .seg{display:flex;gap:4px;background:var(--surface-2);padding:3px;border-radius:9px}
+  .seg button{flex:1;border:0;background:transparent;color:var(--ink-2);font:inherit;font-size:13px;padding:6px 8px;border-radius:7px;cursor:pointer;white-space:nowrap}
+  .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+  .btn{border:1px solid var(--line-2);background:var(--surface);color:var(--ink);font:inherit;font-size:13px;font-weight:500;padding:7px 12px;border-radius:9px;cursor:pointer}
+  .btn:hover{border-color:var(--accent)}
+  .btn.loud{border-color:var(--crit);color:var(--crit)}
+  .toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+  .note{font-size:12px;color:var(--ink-3)}
+
+  /* projected frame */
+  .frame{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;min-height:420px}
+  @media (min-width:760px){.frame{aspect-ratio:16/9;min-height:0}}
+  .frame::after{content:"";position:absolute;inset:0;border-radius:18px;pointer-events:none;border:4px solid transparent;transition:border-color .25s}
+  .frame.warn::after{border-color:var(--crit);animation:blink 1s ease-in-out infinite}
+  @keyframes blink{50%{border-color:transparent}}
+  .view{position:absolute;inset:0;padding:22px 26px}
+  .view[hidden]{display:none}
+
+  /* gauge view */
+  .gauge-view{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(120px,38%);gap:14px 22px}
+  .gauge-box{display:grid;grid-template-rows:minmax(0,1fr) auto;align-items:center;justify-items:center;min-height:0}
+  .gauge-box svg{width:100%;height:100%;max-height:100%;display:block}
+  .readout{display:flex;align-items:baseline;gap:10px;margin-top:-6px}
+  .hero{font-size:clamp(44px,7vw,72px);font-weight:900;line-height:1;letter-spacing:-.03em}
+  .hero small{font-size:.35em;font-weight:500;color:var(--ink-2);margin-left:4px}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;font-size:14px;font-weight:500;background:var(--good-soft);color:var(--ink)}
+  .chip.warning{background:var(--warn-soft)} .chip.critical{background:var(--crit-soft);color:var(--crit)}
+  .chip .dot{width:9px;height:9px;border-radius:50%;background:var(--good)}
+  .chip.warning .dot{background:var(--warn)} .chip.critical .dot{background:var(--crit)}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start}
+  .tile{background:var(--surface-2);border-radius:12px;padding:12px 14px;display:grid;gap:2px}
+  .tile .l{font-size:12px;color:var(--ink-2)}
+  .tile .v{font-size:24px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+  .tile .v small{font-size:13px;font-weight:500;color:var(--ink-2);margin-left:3px}
+  .chart-box{grid-column:1/-1;display:grid;grid-template-rows:auto minmax(0,1fr);gap:4px;min-height:0}
+  .chart-box .cap{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2)}
+  canvas.chart{width:100%;height:100%;display:block;border-radius:10px;background:var(--chart);border:1px solid var(--line)}
+
+  /* scene view */
+  .scene-view{background:linear-gradient(180deg,var(--scene-a),var(--scene-b));display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;gap:14px 26px}
+  .light{align-self:center;background:#22282b;border-radius:22px;padding:14px;display:grid;gap:12px;box-shadow:0 8px 24px rgba(0,0,0,.35);border:3px solid #3a4246}
+  .lamp{width:clamp(48px,8vw,84px);aspect-ratio:1;border-radius:50%;background:var(--lamp-off);opacity:.35;transition:opacity .3s,box-shadow .3s}
+  .lamp.on{opacity:1}
+  .lamp.r{background:var(--crit)} .lamp.y{background:var(--warn)} .lamp.g{background:var(--good)}
+  .lamp.r.on{box-shadow:0 0 28px 6px rgba(208,59,59,.6)} .lamp.y.on{box-shadow:0 0 28px 6px rgba(250,178,25,.6)} .lamp.g.on{box-shadow:0 0 28px 6px rgba(12,163,12,.6)}
+  .stage{display:grid;grid-template-rows:auto minmax(0,1fr) auto;align-items:center;justify-items:center;min-height:0;text-align:center}
+  .stage .msg{font-size:clamp(20px,3.2vw,34px);font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+  .face{font-size:clamp(90px,16vw,180px);line-height:1;transition:transform .15s;will-change:transform;user-select:none}
+  .mini{display:flex;align-items:baseline;gap:8px;color:var(--ink-2);font-size:14px}
+  .mini b{font-size:28px;font-weight:700;color:var(--ink);letter-spacing:-.02em}
+  .goal{grid-column:1/-1;display:grid;gap:6px}
+  .goal .cap{display:flex;justify-content:space-between;font-size:13px;color:var(--ink-2)}
+  .track{position:relative;height:22px;border-radius:999px;background:var(--surface);border:1px solid var(--line)}
+  .fill{position:absolute;inset:0 auto 0 0;border-radius:999px;background:var(--good);width:0%;transition:width .3s linear}
+  .car{position:absolute;top:50%;transform:translate(-50%,-52%);font-size:26px;left:0%;transition:left .3s linear;filter:drop-shadow(0 2px 2px rgba(0,0,0,.25))}
+  .scene-chart{grid-column:1/-1;height:64px}
+  .scene-chart canvas{background:transparent;border-color:var(--line)}
+
+  /* alert overlay */
+  .alert{position:absolute;left:50%;top:14px;transform:translate(-50%,-140%);background:var(--crit);color:#fff;font-weight:700;font-size:clamp(16px,2.4vw,24px);padding:12px 22px;border-radius:14px;box-shadow:0 10px 30px rgba(208,59,59,.45);transition:transform .3s cubic-bezier(.2,.9,.3,1.2);white-space:nowrap;max-width:calc(100% - 32px);text-overflow:ellipsis;overflow:hidden}
+  .frame.warn .alert{transform:translate(-50%,0)}
+
+  /* notes */
+  .notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .card h2{font-size:15px;margin:0 0 6px}
+  .card p,.card li{font-size:14px;color:var(--ink-2);margin:0}
+  .card ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
+  .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--plane);padding:10px 16px;border-radius:10px;font-size:13px;box-shadow:var(--shadow);max-width:calc(100% - 32px);opacity:0;pointer-events:none;transition:opacity .25s}
+  .toast.show{opacity:1}
+
+  @media (max-width:759px){
+    .view{padding:14px}
+    .gauge-view{grid-template-columns:1fr;grid-template-rows:auto auto 160px}
+    .gauge-box svg{max-height:220px}
+    .scene-view{grid-template-columns:auto 1fr}
+    .stats{grid-template-columns:1fr 1fr}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .frame.warn::after{animation:none}
+    .face,.fill,.car,.alert,.lamp{transition:none}
+  }
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>교실 소음 측정기 시안</h1>
+      <p class="sub">두 가지 화면 방향을 같은 소리 데이터로 비교합니다. 실제 프로그램에서는 마이크 값이 들어갑니다.</p>
+    </div>
+    <div class="tabs" role="tablist" aria-label="화면 방향">
+      <button class="tab" role="tab" id="tab-gauge" aria-selected="true" aria-controls="view-gauge">계기판형</button>
+      <button class="tab" role="tab" id="tab-scene" aria-selected="false" aria-controls="view-scene">장면형</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="ctl">
+      <div class="row"><b>제한선</b><span id="thrLabel">70 dB</span></div>
+      <input type="range" id="thr" min="50" max="90" value="70" step="1" aria-label="제한선 데시벨">
+      <span class="note">넘은 상태가 2초 이상 이어지면 경고가 뜹니다.</span>
+    </div>
+    <div class="ctl">
+      <b>소리 입력</b>
+      <div class="seg" role="group" aria-label="소리 입력 방식">
+        <button id="srcAuto" aria-pressed="true">자동 시뮬레이션</button>
+        <button id="srcManual" aria-pressed="false">직접 조절</button>
+        <button id="srcMic" aria-pressed="false">마이크</button>
+      </div>
+      <input type="range" id="manual" min="30" max="100" value="55" step="1" aria-label="시뮬레이션 소음 크기" hidden>
+      <span class="note" id="srcNote">조용함, 수업, 떠듦 상태가 자동으로 바뀝니다.</span>
+    </div>
+    <div class="ctl">
+      <b>시험해 보기</b>
+      <div class="row">
+        <button class="btn loud" id="spike">🗣 갑자기 떠들기</button>
+        <label class="toggle"><input type="checkbox" id="beep" checked> 경고음</label>
+      </div>
+      <span class="note">경고음은 외부 파일 없이 프로그램이 직접 만드는 소리입니다.</span>
+    </div>
+  </div>
+
+  <div class="frame" id="frame">
+    <div class="alert" id="alert" role="status">🤫 너무 시끄러워요! 목소리를 낮춰 주세요</div>
+
+    <section class="view gauge-view" id="view-gauge" role="tabpanel" aria-labelledby="tab-gauge">
+      <div class="gauge-box">
+        <svg viewBox="0 0 300 250" aria-label="소음 계기판">
+          <g id="zones"></g>
+          <g id="ticks" font-size="11" fill="currentColor" font-family="inherit" text-anchor="middle"></g>
+          <path id="needle" d="M150 152 L146 150 L150 52 L154 150 Z" fill="currentColor"/>
+          <circle cx="150" cy="150" r="9" fill="currentColor"/>
+          <circle cx="150" cy="150" r="4" fill="var(--surface)"/>
+        </svg>
+        <div>
+          <div class="readout"><div class="hero"><span id="heroVal">55</span><small>dB</small></div><span class="chip" id="chip"><span class="dot"></span><span id="chipText">조용해요</span></span></div>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="tile"><span class="l">최근 1분 평균</span><span class="v"><span id="avgVal">–</span><small>dB</small></span></div>
+        <div class="tile"><span class="l">최근 1분 최고</span><span class="v"><span id="maxVal">–</span><small>dB</small></span></div>
+        <div class="tile"><span class="l">오늘 경고 횟수</span><span class="v"><span id="warnCount">0</span><small>회</small></span></div>
+        <div class="tile"><span class="l">조용히 한 시간</span><span class="v" id="quietTime">0:00</span></div>
+      </div>
+      <div class="chart-box">
+        <div class="cap"><span>최근 60초 흐름</span><span>점선은 제한선</span></div>
+        <canvas class="chart" id="chartMain"></canvas>
+      </div>
+    </section>
+
+    <section class="view scene-view" id="view-scene" role="tabpanel" aria-labelledby="tab-scene" hidden>
+      <div class="light" aria-label="신호등">
+        <div class="lamp r" id="lampR"></div>
+        <div class="lamp y" id="lampY"></div>
+        <div class="lamp g" id="lampG"></div>
+      </div>
+      <div class="stage">
+        <div class="msg" id="sceneMsg">조용해서 좋아요</div>
+        <div class="face" id="face">😊</div>
+        <div class="mini">지금 <b id="sceneVal">55</b> dB · 제한 <span id="sceneThr">70</span> dB</div>
+      </div>
+      <div class="goal">
+        <div class="cap"><span>🚗 조용히 10분 채우면 자동차가 도착해요</span><span id="goalText">0:00 / 10:00</span></div>
+        <div class="track"><div class="fill" id="fill"></div><div class="car" id="car">🚗</div></div>
+      </div>
+      <div class="scene-chart"><canvas class="chart" id="chartMini"></canvas></div>
+    </section>
+  </div>
+
+  <div class="notes">
+    <div class="card">
+      <h2>계기판형</h2>
+      <p>고학년, 교사 책상용. 숫자와 흐름이 정확히 보이고 통계까지 남습니다.</p>
+      <ul>
+        <li>아날로그 게이지 + 큰 숫자 (joachimth/decibel-meter 방식)</li>
+        <li>흐름 그래프에 제한선을 점선으로 겹쳐 표시</li>
+        <li>넘은 구간은 붉게 칠해서 언제 시끄러웠는지 남김</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>장면형</h2>
+      <p>저학년, TV·프로젝터 투사용. 멀리서도 색과 표정으로 바로 읽힙니다.</p>
+      <ul>
+        <li>신호등 + 표정 이모지 (i-Scream, Classroom Noise Monitor 방식)</li>
+        <li>조용히 한 시간을 목표로 채우는 진행 막대 (학급 보상과 연결)</li>
+        <li>아래 얇은 흐름 그래프로 교사만 추세 확인</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>둘 다 공통</h2>
+      <ul>
+        <li>제한선을 넘고 2초 지나면 빨간 테두리 깜빡임 + 경고 배너 + 경고음</li>
+        <li>1.5초 조용해지면 자동으로 해제</li>
+        <li>다크 모드 지원, 마우스를 그래프에 올리면 그 시점 값 표시</li>
+      </ul>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const MIN=30, MAX=100, SPAN=60000;
+
+  const S = {
+    thr:70, src:'auto', manual:55, raw:45, level:45,
+    hist:[], lastSample:0,
+    warn:false, aboveSince:null, belowSince:null, warnCount:0,
+    quietMs:0, goalMs:600000,
+    phase:0, phaseUntil:0, spikeUntil:0, wob:Math.random()*100,
+    hover:{main:null, mini:null},
+    mic:null, audio:null, view:'gauge'
+  };
+  const PHASES=[
+    {base:42, jit:3, dur:[9000,14000]},
+    {base:60, jit:5, dur:[10000,16000]},
+    {base:76, jit:6, dur:[7000,11000]},
+    {base:58, jit:5, dur:[8000,12000]}
+  ];
+
+  /* ---------- gauge geometry ---------- */
+  const CX=150, CY=150, R=112, A0=-120, A1=120;
+  const rad = d => d*Math.PI/180;
+  const pt = (a,r)=>[CX + r*Math.sin(rad(a)), CY - r*Math.cos(rad(a))];
+  const angleOf = v => A0 + (clamp(v,MIN,MAX)-MIN)/(MAX-MIN)*(A1-A0);
+  function arc(a0,a1,r){
+    const [x0,y0]=pt(a0,r), [x1,y1]=pt(a1,r);
+    return `M${x0.toFixed(1)} ${y0.toFixed(1)} A${r} ${r} 0 ${(a1-a0)>180?1:0} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+  }
+  function buildZones(){
+    const g=$('#zones'); g.innerHTML='';
+    const z=[[MIN, S.thr-10, 'var(--good)'],[S.thr-10, S.thr, 'var(--warn)'],[S.thr, MAX, 'var(--crit)']];
+    z.forEach(([a,b,c])=>{
+      if(b<=a) return;
+      const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+      p.setAttribute('d',arc(angleOf(a),angleOf(b),R));
+      p.setAttribute('stroke',c); p.setAttribute('stroke-width','18'); p.setAttribute('fill','none'); p.setAttribute('stroke-linecap','butt');
+      g.appendChild(p);
+    });
+    // threshold marker
+    const m=document.createElementNS('http://www.w3.org/2000/svg','path');
+    const a=angleOf(S.thr); const [x0,y0]=pt(a,R-16), [x1,y1]=pt(a,R+14);
+    m.setAttribute('d',`M${x0} ${y0} L${x1} ${y1}`); m.setAttribute('stroke','var(--ink)'); m.setAttribute('stroke-width','3'); m.setAttribute('stroke-linecap','round');
+    g.appendChild(m);
+  }
+  function buildTicks(){
+    const g=$('#ticks'); g.innerHTML='';
+    for(let v=MIN;v<=MAX;v+=10){
+      const a=angleOf(v); const [x,y]=pt(a,R+24);
+      const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x',x.toFixed(1)); t.setAttribute('y',(y+4).toFixed(1)); t.setAttribute('fill','var(--ink-2)');
+      t.textContent=v; g.appendChild(t);
+      const [tx0,ty0]=pt(a,R-13),[tx1,ty1]=pt(a,R-9);
+      const l=document.createElementNS('http://www.w3.org/2000/svg','path');
+      l.setAttribute('d',`M${tx0.toFixed(1)} ${ty0.toFixed(1)} L${tx1.toFixed(1)} ${ty1.toFixed(1)}`); l.setAttribute('stroke','var(--surface)'); l.setAttribute('stroke-width','2');
+      g.appendChild(l);
+    }
+  }
+
+  /* ---------- simulation ---------- */
+  function simTarget(now){
+    if(now>S.phaseUntil){
+      S.phase=(S.phase+1)%PHASES.length;
+      const p=PHASES[S.phase]; S.phaseUntil=now+p.dur[0]+Math.random()*(p.dur[1]-p.dur[0]);
+    }
+    const p=PHASES[S.phase];
+    S.wob+=0.013;
+    let v=p.base + Math.sin(S.wob)*p.jit + Math.sin(S.wob*2.7)*p.jit*0.5 + (Math.random()-0.5)*p.jit*1.6;
+    if(Math.random()<0.02) v+=8+Math.random()*8;
+    if(now<S.spikeUntil) v=Math.max(v+18, S.thr+9)+Math.sin(now/90)*4;
+    return clamp(v,MIN,MAX);
+  }
+  function micLevel(){
+    const a=S.mic.analyser, buf=S.mic.buf; a.getFloatTimeDomainData(buf);
+    let s=0; for(let i=0;i<buf.length;i++) s+=buf[i]*buf[i];
+    const rms=Math.sqrt(s/buf.length); const dbfs=20*Math.log10(rms||1e-8);
+    return clamp(dbfs+100,MIN,MAX); // 보정 오프셋 100: 실제 프로그램에서는 설정으로 조절
+  }
+
+  /* ---------- warning sound ---------- */
+  function beep(){
+    if(!$('#beep').checked) return;
+    try{
+      if(!S.audio) S.audio=new (window.AudioContext||window.webkitAudioContext)();
+      const ctx=S.audio; if(ctx.state==='suspended') ctx.resume();
+      [0,0.22].forEach((d,i)=>{
+        const o=ctx.createOscillator(), g=ctx.createGain();
+        o.type='triangle'; o.frequency.value=i?880:660;
+        g.gain.setValueAtTime(0.0001,ctx.currentTime+d);
+        g.gain.exponentialRampToValueAtTime(0.35,ctx.currentTime+d+0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+d+0.18);
+        o.connect(g).connect(ctx.destination); o.start(ctx.currentTime+d); o.stop(ctx.currentTime+d+0.2);
+      });
+    }catch(e){}
+  }
+
+  /* ---------- engine ---------- */
+  let last=performance.now();
+  function tick(now){
+    const dt=Math.min(100, now-last); last=now;
+    if(S.src==='auto') S.raw=simTarget(now);
+    else if(S.src==='manual') S.raw=S.manual + (Math.random()-0.5)*1.5;
+    else if(S.src==='mic' && S.mic) S.raw=micLevel();
+    const tau = S.raw>S.level ? 90 : 450;
+    S.level += (S.raw-S.level)*(1-Math.exp(-dt/tau));
+
+    if(now-S.lastSample>=100){
+      S.lastSample=now; S.hist.push({t:now,v:S.level});
+      while(S.hist.length && now-S.hist[0].t>SPAN+1000) S.hist.shift();
+    }
+
+    const over=S.level>S.thr;
+    if(over){
+      S.belowSince=null;
+      if(S.aboveSince==null) S.aboveSince=now;
+      if(!S.warn && now-S.aboveSince>2000){ S.warn=true; S.warnCount++; beep(); }
+    }else{
+      S.aboveSince=null; S.quietMs+=dt;
+      if(S.belowSince==null) S.belowSince=now;
+      if(S.warn && now-S.belowSince>1500) S.warn=false;
+    }
+    render(now);
+    requestAnimationFrame(tick);
+  }
+
+  /* ---------- rendering ---------- */
+  const fmtTime = ms => { const s=Math.floor(ms/1000); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); };
+  function status(){ return S.level>=S.thr?'critical':(S.level>=S.thr-10?'warning':'good'); }
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+  function render(now){
+    const st=status(); const lv=Math.round(S.level);
+    $('#frame').classList.toggle('warn',S.warn);
+    if(S.view==='gauge'){
+      $('#needle').setAttribute('transform',`rotate(${angleOf(S.level).toFixed(2)} ${CX} ${CY})`);
+      $('#heroVal').textContent=lv;
+      const chip=$('#chip'); chip.className='chip '+st;
+      $('#chipText').textContent = st==='good'?'조용해요':st==='warning'?'조금 시끄러워요':'너무 시끄러워요';
+      const win=S.hist.filter(h=>now-h.t<=SPAN);
+      if(win.length){ $('#avgVal').textContent=Math.round(win.reduce((a,h)=>a+h.v,0)/win.length); $('#maxVal').textContent=Math.round(Math.max(...win.map(h=>h.v))); }
+      $('#warnCount').textContent=S.warnCount; $('#quietTime').textContent=fmtTime(S.quietMs);
+      drawChart($('#chartMain'), now, false, 'main');
+    }else{
+      $('#lampR').classList.toggle('on',st==='critical'); $('#lampY').classList.toggle('on',st==='warning'); $('#lampG').classList.toggle('on',st==='good');
+      const face=$('#face'); const emoji = st==='good'?'😊':st==='warning'?'😐':'😱';
+      if(face.textContent!==emoji) face.textContent=emoji;
+      const sc = 0.9 + (clamp(S.level,MIN,MAX)-MIN)/(MAX-MIN)*0.35 + (S.warn?Math.sin(now/60)*0.04:0);
+      face.style.transform=`scale(${sc.toFixed(3)})`;
+      $('#sceneMsg').textContent = st==='good'?'조용해서 좋아요':st==='warning'?'조금만 더 작게 말해요':'너무 시끄러워요!';
+      $('#sceneVal').textContent=lv; $('#sceneThr').textContent=S.thr;
+      const p=clamp(S.quietMs/S.goalMs,0,1)*100;
+      $('#fill').style.width=p+'%'; $('#car').style.left=p+'%';
+      $('#goalText').textContent=fmtTime(Math.min(S.quietMs,S.goalMs))+' / '+fmtTime(S.goalMs);
+      drawChart($('#chartMini'), now, true, 'mini');
+    }
+  }
+
+  function drawChart(cv, now, compact, key){
+    const dpr=window.devicePixelRatio||1, w=cv.clientWidth, h=cv.clientHeight; if(!w||!h) return;
+    if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);}
+    const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h);
+    const accent=css('--accent'), crit=css('--crit'), ink2=css('--ink-2'), line=css('--line'), surface=css('--chart');
+    const padL=compact?26:34, padR=compact?46:52, padT=compact?8:10, padB=compact?6:20;
+    const x0=padL, x1=w-padR, y0=padT, y1=h-padB;
+    const X=t=>x1-(now-t)/SPAN*(x1-x0), Y=v=>y1-(clamp(v,MIN,MAX)-MIN)/(MAX-MIN)*(y1-y0);
+    ctx.font=(compact?'10px':'11px')+' "Noto Sans KR", system-ui, sans-serif'; ctx.textBaseline='middle';
+    // grid
+    ctx.strokeStyle=line; ctx.lineWidth=1; ctx.fillStyle=ink2; ctx.textAlign='right';
+    const step=compact?35:10;
+    for(let v=MIN;v<=MAX;v+=step){ const y=Y(v); ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x1,y); ctx.stroke(); if(!compact||v===MIN||v===MAX) ctx.fillText(v,x0-6,y); }
+    if(!compact){ ctx.textAlign='center'; ctx.textBaseline='top'; for(let s=0;s<=60;s+=15){ const x=X(now-s*1000); ctx.fillText(s===0?'지금':s+'초 전',x,y1+5); ctx.beginPath(); ctx.moveTo(x,y1); ctx.lineTo(x,y1+3); ctx.stroke(); } ctx.textBaseline='middle'; }
+    const pts=S.hist.filter(h=>now-h.t<=SPAN+200); if(pts.length<2) return;
+    const path=()=>{ ctx.beginPath(); pts.forEach((p,i)=>{ const x=X(p.t), y=Y(p.v); i?ctx.lineTo(x,y):ctx.moveTo(x,y); }); };
+    // area
+    path(); ctx.lineTo(X(pts[pts.length-1].t),y1); ctx.lineTo(X(pts[0].t),y1); ctx.closePath();
+    ctx.fillStyle=css('--accent-soft'); ctx.fill();
+    // over-threshold tint
+    ctx.save(); ctx.beginPath(); ctx.rect(x0,y0,x1-x0,Math.max(0,Y(S.thr)-y0)); ctx.clip();
+    path(); ctx.lineTo(X(pts[pts.length-1].t),y1); ctx.lineTo(X(pts[0].t),y1); ctx.closePath(); ctx.fillStyle=css('--crit-soft'); ctx.fill(); ctx.restore();
+    // line
+    path(); ctx.strokeStyle=accent; ctx.lineWidth=2; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke();
+    // threshold
+    const ty=Y(S.thr); ctx.setLineDash([5,4]); ctx.strokeStyle=crit; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(x0,ty); ctx.lineTo(x1,ty); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=crit; ctx.textAlign='left'; ctx.fillText('제한 '+S.thr,x1+6,ty);
+    // endpoint
+    const lp=pts[pts.length-1], ex=X(lp.t), ey=Y(lp.v);
+    ctx.beginPath(); ctx.arc(ex,ey,5,0,Math.PI*2); ctx.fillStyle=surface; ctx.fill(); ctx.beginPath(); ctx.arc(ex,ey,3.5,0,Math.PI*2); ctx.fillStyle=lp.v>=S.thr?crit:accent; ctx.fill();
+    if(Math.abs(ey-ty)>10){ ctx.fillStyle=css('--ink'); ctx.font='600 '+(compact?'11px':'12px')+' "Noto Sans KR", system-ui, sans-serif'; ctx.fillText(Math.round(lp.v)+' dB',x1+6,ey); }
+    // hover
+    const hx=S.hover[key];
+    if(hx!=null && hx>=x0 && hx<=x1){
+      let best=pts[0], bd=1e9; for(const p of pts){ const d=Math.abs(X(p.t)-hx); if(d<bd){bd=d;best=p;} }
+      const bx=X(best.t), by=Y(best.v);
+      ctx.strokeStyle=css('--line-2'); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(bx,y0); ctx.lineTo(bx,y1); ctx.stroke();
+      ctx.beginPath(); ctx.arc(bx,by,5,0,Math.PI*2); ctx.fillStyle=surface; ctx.fill(); ctx.beginPath(); ctx.arc(bx,by,3.5,0,Math.PI*2); ctx.fillStyle=accent; ctx.fill();
+      const label=Math.round(best.v)+' dB · '+Math.round((now-best.t)/1000)+'초 전';
+      ctx.font='500 11px "Noto Sans KR", system-ui, sans-serif'; const tw=ctx.measureText(label).width+14;
+      let lx=bx+10; if(lx+tw>x1) lx=bx-10-tw; const ly=clamp(by-24,y0,y1-22);
+      ctx.fillStyle=css('--ink'); ctx.beginPath(); ctx.roundRect(lx,ly,tw,22,6); ctx.fill();
+      ctx.fillStyle=css('--plane'); ctx.textAlign='left'; ctx.fillText(label,lx+7,ly+11);
+    }
+  }
+
+  /* ---------- controls ---------- */
+  function setSrc(src){
+    S.src=src;
+    ['Auto','Manual','Mic'].forEach(n=>$('#src'+n).setAttribute('aria-pressed', String(src===n.toLowerCase())));
+    $('#manual').hidden = src!=='manual';
+    $('#srcNote').textContent = src==='auto'?'조용함, 수업, 떠듦 상태가 자동으로 바뀝니다.':src==='manual'?'슬라이더를 움직여 소리 크기를 정합니다.':'마이크 소리를 그대로 씁니다. (보정 오프셋 100)';
+  }
+  function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),4200); }
+  async function startMic(){
+    if(S.mic){ setSrc('mic'); return; }
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ toast('이 화면에서는 마이크를 쓸 수 없어요. 파일을 크롬에서 직접 열면 됩니다.'); return; }
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+      const ctx=new (window.AudioContext||window.webkitAudioContext)();
+      const srcNode=ctx.createMediaStreamSource(stream); const an=ctx.createAnalyser(); an.fftSize=2048; srcNode.connect(an);
+      S.mic={ctx,analyser:an,buf:new Float32Array(an.fftSize)}; setSrc('mic'); toast('마이크 연결됨. 손뼉을 쳐 보세요.');
+    }catch(e){ toast('마이크를 쓸 수 없어요. 파일을 크롬에서 직접 열면 됩니다.'); }
+  }
+  $('#srcAuto').addEventListener('click',()=>setSrc('auto'));
+  $('#srcManual').addEventListener('click',()=>setSrc('manual'));
+  $('#srcMic').addEventListener('click',startMic);
+  $('#manual').addEventListener('input',e=>S.manual=+e.target.value);
+  $('#thr').addEventListener('input',e=>{ S.thr=+e.target.value; $('#thrLabel').textContent=S.thr+' dB'; buildZones(); });
+  $('#spike').addEventListener('click',()=>{ if(S.src==='mic') return toast('마이크 모드에서는 직접 소리를 내 보세요.'); if(S.src==='manual') setSrc('auto'); S.spikeUntil=performance.now()+4000; });
+  $('#beep').addEventListener('change',e=>{ if(e.target.checked) beep(); });
+
+  function setView(v){
+    S.view=v;
+    $('#view-gauge').hidden = v!=='gauge'; $('#view-scene').hidden = v!=='scene';
+    $('#tab-gauge').setAttribute('aria-selected',String(v==='gauge')); $('#tab-scene').setAttribute('aria-selected',String(v==='scene'));
+    try{ history.replaceState(null,'','#'+v); }catch(e){}
+  }
+  $('#tab-gauge').addEventListener('click',()=>setView('gauge'));
+  $('#tab-scene').addEventListener('click',()=>setView('scene'));
+  if(location.hash==='#scene') setView('scene');
+
+  [['#chartMain','main'],['#chartMini','mini']].forEach(([sel,key])=>{
+    const cv=$(sel);
+    cv.addEventListener('pointermove',e=>{ const r=cv.getBoundingClientRect(); S.hover[key]=e.clientX-r.left; });
+    cv.addEventListener('pointerleave',()=>{ S.hover[key]=null; });
+  });
+
+  buildZones(); buildTicks();
+  // 시작 시 이미 1분 흐름이 보이도록 과거 데이터를 채운다
+  (function seed(){ const now=performance.now(); for(let t=now-SPAN;t<now;t+=100){ S.wob+=0.013; const v=52+Math.sin(S.wob)*5+Math.sin(S.wob*2.7)*2+(Math.random()-0.5)*4; S.hist.push({t,v:clamp(v,MIN,MAX)}); } S.level=S.hist[S.hist.length-1].v; S.phase=0; S.phaseUntil=now+6000; })();
+  requestAnimationFrame(tick);
+})();
+</script>
